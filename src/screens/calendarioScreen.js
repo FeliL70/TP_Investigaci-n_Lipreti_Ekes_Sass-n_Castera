@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, FlatList, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar } from 'react-native-calendars';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Notifications from 'expo-notifications';
 
 export default function CalendarioScreen() {
   const navigation = useNavigation();
@@ -13,17 +14,58 @@ export default function CalendarioScreen() {
   const [horaEvento, setHoraEvento] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
 
+  useEffect(() => {
+    const requestPermissions = async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Permisos de notificaciones denegados');
+      }
+    };
+    requestPermissions();
+  }, []);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      const { title, body } = notification.request.content;
+      Alert.alert(title, body);
+    });
+    return () => subscription.remove();
+  }, []);
+
   const agregarEvento = () => {
     if (nuevoEvento.trim()) {
       const fechaKey = fechaSeleccionada.toISOString().slice(0, 10);
       const timeString = horaEvento.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setEventos(prev => ({
-        ...prev,
-        [fechaKey]: [...(prev[fechaKey] || []), { title: nuevoEvento, time: timeString }]
-      }));
+      setEventos(prev => {
+        const updatedEventos = {
+          ...prev,
+          [fechaKey]: [...(prev[fechaKey] || []), { title: nuevoEvento, time: timeString }]
+        };
+        scheduleNotification(fechaKey, nuevoEvento, horaEvento);
+        return updatedEventos;
+      });
       setNuevoEvento('');
       setHoraEvento(new Date());
       setModalVisible(false);
+    }
+  };
+
+  const scheduleNotification = async (dateKey, title, time) => {
+    // Combine date and time into a Date object for notification scheduling
+    const [hour, minute] = time.getHours ? [time.getHours(), time.getMinutes()] : [horaEvento.getHours(), horaEvento.getMinutes()];
+    const [year, month, day] = dateKey.split('-').map(Number);
+    const notificationDate = new Date(year, month - 1, day, hour, minute, 0);
+
+    const now = new Date();
+    if (notificationDate > now) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Evento: " + title,
+          body: `Es hora de tu evento programado a las ${time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          sound: true,
+        },
+        trigger: notificationDate,
+      });
     }
   };
 
