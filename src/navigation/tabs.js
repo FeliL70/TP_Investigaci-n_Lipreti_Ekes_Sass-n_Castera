@@ -27,7 +27,7 @@ export default function MyTabs() {
       />
 
       <Tab.Screen 
-        name="cronometro" 
+        name="Temporizador" 
         component={StackANavigator}
         options={{
           tabBarIcon: () => (
