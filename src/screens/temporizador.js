@@ -9,10 +9,45 @@ export default function TemporizadorScreen() {
   const [corriendo, setCorriendo] = useState(false);
   const [minutos, setMinutos] = useState('');
   const [segundos, setSegundos] = useState('');
-  const [sound, setSound] = useState(null);
 
   const intervalRef = useRef(null);
+  const soundRef = useRef(null); // mantiene el sonido pre-cargado
+  const audioUri = 'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg';
 
+  // Pre-cargar el sonido cuando monta el componente
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSound() {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: audioUri },
+          { shouldPlay: false, staysActiveInBackground: true } // no reproducir aún
+        );
+        if (mounted) {
+          soundRef.current = sound;
+        } else {
+          // si ya se desmontó, descargar
+          await sound.unloadAsync();
+        }
+      } catch (err) {
+        console.warn('No se pudo pre-cargar sonido:', err);
+        soundRef.current = null;
+      }
+    }
+
+    loadSound();
+
+    return () => {
+      mounted = false;
+      // cleanup: descargar si existe
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+      }
+    };
+  }, []);
+
+  // Intervalo del temporizador
   useEffect(() => {
     if (corriendo && tiempoRestante > 0) {
       intervalRef.current = setInterval(() => {
@@ -22,51 +57,67 @@ export default function TemporizadorScreen() {
       clearInterval(intervalRef.current);
     }
 
-    // Cuando llega a 0, sonar y vibrar
     if (tiempoRestante === 0 && corriendo) {
-      reproducirSonido();
-      vibrarTelefono();
+      // Cuando llega a 0: ejecutar sonido y vibración simultáneamente
+      activarAlarmaSimultanea();
       setCorriendo(false);
     }
 
     return () => clearInterval(intervalRef.current);
   }, [corriendo, tiempoRestante]);
 
-  const formatearTiempo = (segundos) => {
-    const min = Math.floor(segundos / 60);
-    const seg = segundos % 60;
-    return `${min.toString().padStart(2, '0')}:${seg.toString().padStart(2, '0')}`;
+  const formatearTiempo = (seg) => {
+    const min = Math.floor(seg / 60);
+    const s = seg % 60;
+    return `${min.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  async function reproducirSonido() {
-    try {
-      const { sound } = await Audio.Sound.createAsync({
-        uri: 'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg',
-      });
-      setSound(sound);
-      await sound.playAsync();
-    } catch (error) {
-      console.error('Error al reproducir sonido:', error);
+  // Alarma simultánea: reproducir sonido ya cargado y vibrar sin await
+  const activarAlarmaSimultanea = () => {
+    // vibración (patrón intermitente). En Android el patrón funciona bien.
+    const pattern = [500, 500, 500, 500, 500]; // ~2.5s intermitente
+    Vibration.vibrate(pattern);
+
+    // reproducir sonido ya precargado sin await para que empiece inmediatamente
+    if (soundRef.current) {
+      // replayAsync reinicia y reproduce
+      soundRef.current
+        .replayAsync()
+        .catch(async (err) => {
+          // si falla (ej: sound fue descargado), intentamos cargar rápido y reproducir
+          console.warn('Error al reproducir precargado, intento cargar y reproducir:', err);
+          try {
+            const { sound } = await Audio.Sound.createAsync({ uri: audioUri }, { shouldPlay: true });
+            // reemplazamos la referencia por el nuevo y lo dejamos para limpieza
+            if (soundRef.current) {
+              // descargar viejo si existe
+              soundRef.current.unloadAsync().catch(() => {});
+            }
+            soundRef.current = sound;
+          } catch (e) {
+            console.error('No se pudo reproducir el sonido de alarma:', e);
+          }
+        });
+    } else {
+      // fallback: si no está precargado, intentar crear y reproducir (esto puede demorar)
+      Audio.Sound.createAsync({ uri: audioUri }, { shouldPlay: true })
+        .then(({ sound }) => {
+          // guardamos para próximos usos
+          if (soundRef.current) {
+            soundRef.current.unloadAsync().catch(() => {});
+          }
+          soundRef.current = sound;
+        })
+        .catch((e) => {
+          console.error('Fallo al cargar sonido en fallback:', e);
+        });
     }
-  }
-
-  function vibrarTelefono() {
-    
-    Vibration.vibrate([20000]);
-  }
-
-  useEffect(() => {
-    return sound
-      ? () => {
-          sound.unloadAsync();
-        }
-      : undefined;
-  }, [sound]);
+  };
 
   const toggleTemporizador = () => {
     if (!corriendo) {
       if (tiempoRestante === 0) {
-        const totalSegundos = parseInt(minutos || 0) * 60 + parseInt(segundos || 0);
+        const totalSegundos = parseInt(minutos || '0', 10) * 60 + parseInt(segundos || '0', 10);
         if (totalSegundos > 0) {
           setTiempoRestante(totalSegundos);
           setCorriendo(true);
@@ -85,6 +136,12 @@ export default function TemporizadorScreen() {
     setTiempoRestante(0);
     setMinutos('');
     setSegundos('');
+    // detener sonido si está sonando
+    if (soundRef.current) {
+      soundRef.current.stopAsync().catch(() => {});
+    }
+    // cancelar vibración en Android/iOS
+    Vibration.cancel();
   };
 
   return (
@@ -129,7 +186,7 @@ export default function TemporizadorScreen() {
 
       <View style={styles.controles}>
         <TouchableOpacity onPress={toggleTemporizador}>
-          <Ionicons name={corriendo ? "pause" : "play"} size={48} color="white" />
+          <Ionicons name={corriendo ? 'pause' : 'play'} size={48} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={reiniciarTemporizador}>
