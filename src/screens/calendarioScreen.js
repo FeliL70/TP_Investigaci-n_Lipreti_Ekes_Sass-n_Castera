@@ -51,7 +51,6 @@ export default function CalendarioScreen() {
   };
 
   const scheduleNotification = async (dateKey, title, time) => {
-    // Combine date and time into a Date object for notification scheduling
     const [hour, minute] = time.getHours ? [time.getHours(), time.getMinutes()] : [horaEvento.getHours(), horaEvento.getMinutes()];
     const [year, month, day] = dateKey.split('-').map(Number);
     const notificationDate = new Date(year, month - 1, day, hour, minute, 0);
@@ -82,9 +81,8 @@ export default function CalendarioScreen() {
   return (
     <View style={{ backgroundColor: '#272727', flex: 1 }}>
       <View style={styles.calendarioScreen}>
-        <View style={{ height: 23 }} />
-
         <Calendar
+          style={styles.calendario}
           theme={{
             calendarBackground: '#272727',
             dayTextColor: 'white',
@@ -101,7 +99,6 @@ export default function CalendarioScreen() {
           markedDates={getMarkedDates()}
         />
 
-        <View style={{ height: 46 }} />
         <Text style={styles.text}>
           Fecha seleccionada: {fechaSeleccionada.toDateString()}
         </Text>
@@ -111,43 +108,54 @@ export default function CalendarioScreen() {
         </TouchableOpacity>
 
         <Modal visible={modalVisible} animationType="slide" transparent={true}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Nuevo Evento</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Título del evento"
-                value={nuevoEvento}
-                onChangeText={setNuevoEvento}
-              />
-              <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
-                <Text style={{ color: 'white' }}>{horaEvento.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-              </TouchableOpacity>
-              {showTimePicker && (
-                <DateTimePicker
-                  value={horaEvento}
-                  mode="time"
-                  is24Hour={true}
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowTimePicker(false);
-                    if (selectedDate) {
-                      setHoraEvento(selectedDate);
-                    }
-                  }}
-                />
-              )}
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.buttonText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveButton} onPress={agregarEvento}>
-                  <Text style={styles.buttonText}>Guardar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
+  <View style={styles.modalContainer}>
+    <View style={styles.modalContent}>
+      <Text style={styles.modalTitle}>Nuevo Evento</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Título del evento"
+        placeholderTextColor="#aaa"
+        value={nuevoEvento}
+        onChangeText={setNuevoEvento}
+      />
+
+      {/* 🔹 Botón para seleccionar la hora */}
+      <TouchableOpacity
+        style={styles.timeButton}
+        onPress={() => setShowTimePicker(true)}
+      >
+        <Text style={styles.timeButtonText}>
+          {horaEvento.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </TouchableOpacity>
+
+      {showTimePicker && (
+        <DateTimePicker
+          value={horaEvento}
+          mode="time"
+          is24Hour={true}
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowTimePicker(false);
+            if (selectedDate) {
+              setHoraEvento(selectedDate);
+            }
+          }}
+        />
+      )}
+
+      <View style={styles.modalButtons}>
+        <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+          <Text style={styles.buttonText}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.saveButton} onPress={agregarEvento}>
+          <Text style={styles.buttonText}>Guardar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
 
         <Text style={styles.text}>Eventos:</Text>
         <FlatList
@@ -167,10 +175,13 @@ const styles = StyleSheet.create({
     alignContent: 'center',
     paddingHorizontal: 15,
   },
+  calendario: {
+    marginTop: 70,
+  },
   text: {
     color: 'white',
     fontSize: 22,
-    marginBottom: 10,
+    marginVertical: 10,
     textAlign: 'left',
     paddingHorizontal: 15,
     fontWeight: 'bold',
@@ -240,5 +251,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 5,
     paddingHorizontal: 15,
+  },
+  timeButton: {
+    padding: 12,
+    marginBottom: 10,
+    borderRadius: 5,
+    backgroundColor: '#333',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  timeButtonText: {
+    color: 'white',
+    fontSize: 18,
   },
 });

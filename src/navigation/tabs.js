@@ -31,7 +31,7 @@ export default function MyTabs() {
         component={StackANavigator}
         options={{
           tabBarIcon: () => (
-            <Ionicons name="flash" size={24} color={"black"} />
+            <Ionicons name="stopwatch-outline" size={28} color={"black"} />
           ),
         }}
       />
@@ -41,7 +41,7 @@ export default function MyTabs() {
         tabBarIcon: () => (
             <Image
     source={logoTab}
-    style={{ width: 36, height: 36 }}
+    style={{ width: 24, height: 24 }}
     resizeMode="contain"
   />
         ),
