@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, FlatList, Alert, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useState, useEffect } from 'react';
 import { Calendar } from 'react-native-calendars';
@@ -12,7 +12,9 @@ export default function CalendarioScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [nuevoEvento, setNuevoEvento] = useState('');
   const [horaEvento, setHoraEvento] = useState(new Date());
+
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempTime, setTempTime] = useState(new Date());
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -32,35 +34,58 @@ export default function CalendarioScreen() {
     return () => subscription.remove();
   }, []);
 
+  const abrirModal = () => {
+    setNuevoEvento('');
+    setHoraEvento(new Date());
+    setModalVisible(true);
+  };
+
+  const cerrarModal = () => {
+    setModalVisible(false);
+    setShowTimePicker(false);
+  };
+
+  const abrirSelectorHora = () => {
+    setTempTime(horaEvento);
+    setShowTimePicker(true);
+  };
+
+  const aceptarHora = () => {
+    setHoraEvento(tempTime);
+    setShowTimePicker(false);
+  };
+
   const agregarEvento = () => {
-    if (nuevoEvento.trim()) {
-      const fechaKey = fechaSeleccionada.toISOString().slice(0, 10);
-      const timeString = horaEvento.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setEventos(prev => {
-        const updatedEventos = {
-          ...prev,
-          [fechaKey]: [...(prev[fechaKey] || []), { title: nuevoEvento, time: timeString }]
-        };
-        scheduleNotification(fechaKey, nuevoEvento, horaEvento);
-        return updatedEventos;
-      });
-      setNuevoEvento('');
-      setHoraEvento(new Date());
-      setModalVisible(false);
+    if (!nuevoEvento.trim()) {
+      Alert.alert('Error', 'Escribí un título para el evento.');
+      return;
     }
+
+    const fechaKey = fechaSeleccionada.toISOString().slice(0, 10);
+    const timeString = horaEvento.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setEventos(prev => ({
+      ...prev,
+      [fechaKey]: [...(prev[fechaKey] || []), { title: nuevoEvento, time: timeString }],
+    }));
+
+    scheduleNotification(fechaKey, nuevoEvento, horaEvento);
+    setNuevoEvento('');
+    setHoraEvento(new Date());
+    setModalVisible(false);
   };
 
   const scheduleNotification = async (dateKey, title, time) => {
-    const [hour, minute] = time.getHours ? [time.getHours(), time.getMinutes()] : [horaEvento.getHours(), horaEvento.getMinutes()];
+    const hour = time.getHours();
+    const minute = time.getMinutes();
     const [year, month, day] = dateKey.split('-').map(Number);
     const notificationDate = new Date(year, month - 1, day, hour, minute, 0);
 
-    const now = new Date();
-    if (notificationDate > now) {
+    if (notificationDate > new Date()) {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Evento: " + title,
-          body: `Es hora de tu evento programado a las ${time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          body: `Es hora de tu evento a las ${time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
           sound: true,
         },
         trigger: notificationDate,
@@ -103,59 +128,69 @@ export default function CalendarioScreen() {
           Fecha seleccionada: {fechaSeleccionada.toDateString()}
         </Text>
 
-        <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity style={styles.button} onPress={abrirModal}>
           <Text style={styles.buttonText}>Agregar Evento</Text>
         </TouchableOpacity>
 
-        <Modal visible={modalVisible} animationType="slide" transparent={true}>
-  <View style={styles.modalContainer}>
-    <View style={styles.modalContent}>
-      <Text style={styles.modalTitle}>Nuevo Evento</Text>
+        <Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={cerrarModal}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Nuevo Evento</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Título del evento"
-        placeholderTextColor="#aaa"
-        value={nuevoEvento}
-        onChangeText={setNuevoEvento}
-      />
+              <TextInput
+                style={styles.input}
+                placeholder="Título del evento"
+                placeholderTextColor="#aaa"
+                value={nuevoEvento}
+                onChangeText={setNuevoEvento}
+              />
 
-      {/* 🔹 Botón para seleccionar la hora */}
-      <TouchableOpacity
-        style={styles.timeButton}
-        onPress={() => setShowTimePicker(true)}
-      >
-        <Text style={styles.timeButtonText}>
-          {horaEvento.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </TouchableOpacity>
+              <View style={{ alignItems: 'center', marginTop: 10 }}>
+                <TouchableOpacity style={styles.circleTimeButton} onPress={abrirSelectorHora}>
+                  <Text style={styles.circleTimeText}>
+                    {horaEvento.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.horaLabel}>Tocar el círculo para elegir hora</Text>
+              </View>
 
-      {showTimePicker && (
-        <DateTimePicker
-          value={horaEvento}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowTimePicker(false);
-            if (selectedDate) {
-              setHoraEvento(selectedDate);
-            }
-          }}
-        />
-      )}
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={styles.cancelButton} onPress={cerrarModal}>
+                  <Text style={styles.buttonText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveButton} onPress={agregarEvento}>
+                  <Text style={styles.buttonText}>Guardar</Text>
+                </TouchableOpacity>
+              </View>
 
-      <View style={styles.modalButtons}>
-        <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-          <Text style={styles.buttonText}>Cancelar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.saveButton} onPress={agregarEvento}>
-          <Text style={styles.buttonText}>Guardar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
+              {showTimePicker && (
+                <View style={styles.timePickerOverlay}>
+                  <View style={styles.timePickerContainer}>
+                    <DateTimePicker
+                      value={tempTime}
+                      mode="time"
+                      is24Hour={true}
+                      display={Platform.OS === 'ios' ? 'spinner' : 'clock'}
+                      onChange={(event, selectedDate) => {
+                        if (selectedDate) setTempTime(selectedDate);
+                      }}
+                    />
+
+                    <View style={styles.timePickerButtons}>
+                      <TouchableOpacity style={styles.tpButton} onPress={() => setShowTimePicker(false)}>
+                        <Text style={styles.tpButtonText}>Cancelar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.tpButton} onPress={aceptarHora}>
+                        <Text style={styles.tpButtonText}>Aceptar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+            </View>
+          </View>
+        </Modal>
 
         <Text style={styles.text}>Eventos:</Text>
         <FlatList
@@ -208,7 +243,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#272727',
     padding: 20,
     borderRadius: 10,
-    width: '80%',
+    width: '90%',
+    maxWidth: 420,
   },
   modalTitle: {
     color: 'white',
@@ -219,31 +255,59 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 5,
+    borderColor: '#444',
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 8,
     color: 'white',
+    backgroundColor: '#202020',
+  },
+  circleTimeButton: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: '#333',
+    borderWidth: 2,
+    borderColor: '#00adf5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+  },
+  circleTimeText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  horaLabel: {
+    color: '#bbb',
+    marginTop: 6,
+    fontSize: 13,
+  },
+  horaSeleccionada: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 5,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 12,
   },
   cancelButton: {
     backgroundColor: '#666',
     padding: 10,
-    borderRadius: 5,
+    borderRadius: 6,
     flex: 1,
-    marginRight: 5,
+    marginRight: 6,
     alignItems: 'center',
   },
   saveButton: {
     backgroundColor: '#00adf5',
     padding: 10,
-    borderRadius: 5,
+    borderRadius: 6,
     flex: 1,
-    marginLeft: 5,
+    marginLeft: 6,
     alignItems: 'center',
   },
   eventText: {
@@ -252,17 +316,38 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     paddingHorizontal: 15,
   },
-  timeButton: {
-    padding: 12,
-    marginBottom: 10,
-    borderRadius: 5,
-    backgroundColor: '#333',
+  timePickerOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccc',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  timeButtonText: {
+  timePickerContainer: {
+    width: '85%',
+    backgroundColor: '#272727',
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+  },
+  timePickerButtons: {
+    flexDirection: 'row',
+    marginTop: 8,
+    width: '100%',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+  tpButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    backgroundColor: '#00adf5',
+  },
+  tpButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
