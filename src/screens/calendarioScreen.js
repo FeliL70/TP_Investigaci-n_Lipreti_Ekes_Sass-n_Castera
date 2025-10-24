@@ -132,7 +132,7 @@ export default function CalendarioScreen() {
           <Text style={styles.buttonText}>Agregar Evento</Text>
         </TouchableOpacity>
 
-        <Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={cerrarModal}>
+        <Modal visible={modalVisible} animationType="" transparent={true} onRequestClose={cerrarModal}>
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Nuevo Evento</Text>
@@ -325,13 +325,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
+    
   },
   timePickerContainer: {
     width: '85%',
-    backgroundColor: '#272727',
+    backgroundColor: '#9E9E9E',
     borderRadius: 12,
     padding: 10,
     alignItems: 'center',
+    borderWidth: 3,        
+    borderColor: 'gray'    
   },
   timePickerButtons: {
     flexDirection: 'row',
@@ -339,12 +342,14 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
+    color:'#991212'
   },
   tpButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
     backgroundColor: '#00adf5',
+    
   },
   tpButtonText: {
     color: 'white',
