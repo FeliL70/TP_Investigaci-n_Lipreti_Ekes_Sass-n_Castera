@@ -1,13 +1,13 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import temporizador from '../screens/temporizador';
 
-const StackB = createNativeStackNavigator();
+const StackA = createNativeStackNavigator();
 
-export default function StackBNavigator() {
+export default function StackANavigator() {
 
   return (
-    <StackB.Navigator screenOptions={{ headerShown: false}}>
-      <StackB.Screen name="temporizador" component={temporizador} />
-    </StackB.Navigator>
+    <StackA.Navigator screenOptions={{ headerShown: false}}>
+      <StackA.Screen name="temporizador" component={temporizador} />
+    </StackA.Navigator>
   );
 }
